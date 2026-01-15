@@ -10,7 +10,7 @@ import (
 )
 
 func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
-	body, err := json.Marshal(val)
+	dat, err := json.Marshal(val)
 	if err != nil {
 		return fmt.Errorf("error marshalling val: %v", err)
 	}
@@ -18,17 +18,10 @@ func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
 	msg := amqp.Publishing{
 		Timestamp:   time.Now(),
 		ContentType: "application/json",
-		Body:        body,
+		Body:        dat,
 	}
 
-	err = ch.PublishWithContext(
-		context.Background(),
-		exchange,
-		key,
-		false,
-		false,
-		msg,
-	)
+	err = ch.PublishWithContext(context.Background(), exchange, key, false, false, msg)
 	if err != nil {
 		return fmt.Errorf("error publishing message: %v", err)
 	}
