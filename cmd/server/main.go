@@ -3,10 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 
+	"github.com/joeljosephwebdev/learn-pub-sub/internal/gamelogic"
 	"github.com/joeljosephwebdev/learn-pub-sub/internal/pubsub"
 	"github.com/joeljosephwebdev/learn-pub-sub/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -25,32 +23,67 @@ func main() {
 	}
 	// Defer a .Close() of the connection to ensure it's closed when the program exits.
 	defer conn.Close()
-	ch, err := conn.Channel()
+	publishCh, err := conn.Channel()
 	if err != nil {
 		log.Fatalf("failed to make channel: %v", err)
 	}
 
 	fmt.Println("RabbitMQ connection successfull!")
+	gamelogic.PrintServerHelp()
 
-	err = pubsub.PublishJSON(ch, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{IsPaused: true})
-	if err != nil {
-		log.Fatalf("error publishing to exchange: %v", err)
+	for {
+		words := gamelogic.GetInput()
+		if len(words) == 0 {
+			continue
+		}
+		switch words[0] {
+		case "pause":
+			fmt.Println("Publishing paused game state")
+			err = pubsub.PublishJSON(
+				publishCh,
+				routing.ExchangePerilDirect,
+				routing.PauseKey,
+				routing.PlayingState{
+					IsPaused: true,
+				},
+			)
+			if err != nil {
+				log.Printf("could not publish time: %v", err)
+			}
+		case "resume":
+			fmt.Println("Publishing resumes game state")
+			err = pubsub.PublishJSON(
+				publishCh,
+				routing.ExchangePerilDirect,
+				routing.PauseKey,
+				routing.PlayingState{
+					IsPaused: false,
+				},
+			)
+			if err != nil {
+				log.Printf("could not publish time: %v", err)
+			}
+		case "quit":
+			log.Println("goodbye")
+			return
+		default:
+			fmt.Println("unknown command")
+		}
 	}
 
 	// Wait for a signal (e.g. Ctrl+C) to exit the program.
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	// sigs := make(chan os.Signal, 1)
+	// signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	done := make(chan bool, 1)
+	// done := make(chan bool, 1)
 
-	go func() {
-		sig := <-sigs
-		fmt.Println()
-		fmt.Println(sig)
-		done <- true
-	}()
+	// go func() {
+	// 	sig := <-sigs
+	// 	fmt.Println()
+	// 	fmt.Println(sig)
+	// 	done <- true
+	// }()
 
-	<-done
-	fmt.Println("Server shutting down...")
-
+	// <-done
+	// fmt.Println("Server shutting down...")
 }
