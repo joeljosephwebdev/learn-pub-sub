@@ -3,9 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/joeljosephwebdev/learn-pub-sub/internal/gamelogic"
 	"github.com/joeljosephwebdev/learn-pub-sub/internal/pubsub"
@@ -41,19 +38,40 @@ func main() {
 	}
 	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
 
-	// Wait for a signal (e.g. Ctrl+C) to exit the program.
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	gameState := gamelogic.NewGameState(username)
 
-	done := make(chan bool, 1)
-
-	go func() {
-		sig := <-sigs
-		fmt.Println()
-		fmt.Println(sig)
-		done <- true
-	}()
-
-	<-done
-	fmt.Println("RabbitMQ connection closed.")
+	for {
+		words := gamelogic.GetInput()
+		if len(words) < 1 {
+			continue
+		}
+		switch words[0] {
+		case "spawn":
+			err = gameState.CommandSpawn(words)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+		case "move":
+			fmt.Println("we moving")
+			armyMove, err := gameState.CommandMove(words)
+			if err != nil {
+				fmt.Print(err)
+				continue
+			} else {
+				fmt.Printf("move %s %d\n", armyMove.ToLocation, len(armyMove.Units))
+			}
+		case "status":
+			gameState.CommandStatus()
+		case "help":
+			gamelogic.PrintClientHelp()
+		case "spam":
+			fmt.Println("spamming not allowed yet")
+		case "quit":
+			gamelogic.PrintQuit()
+			return
+		default:
+			fmt.Println("unknwon command")
+		}
+	}
 }
